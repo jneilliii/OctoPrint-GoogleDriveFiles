@@ -8,6 +8,7 @@ import flask
 import os
 from flask_babel import gettext
 from octoprint.access.permissions import Permissions, ADMIN_GROUP
+from treelib import Tree, Node
 
 
 class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
@@ -26,7 +27,7 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
         self.google_files_removed = []
         self.local_files_removed = []
         self.local_files_added = []
-        self.syncing = False
+        self.sync_thread = None
 
     # ~~ SettingsPlugin mixin
 
@@ -99,14 +100,13 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
             self._settings.set(["cert_authorized"], True)
             self._settings.save()
             self.reload_settings()
-            sync_worker = threading.Thread(target=self.sync_files, daemon=True)
-            sync_worker.start()
+            self.sync_thread = threading.Thread(target=self.sync_files, daemon=True)
+            self.sync_thread.start()
             return flask.jsonify({'authorized': True})
 
     def sync_files(self):
-        if self.config['cert_authorized'] and not self.syncing:
+        if self.config['cert_authorized']:
             try:
-                self.syncing = True
                 drive = self._get_drive()
                 folder_id = None
                 files_removed = False
@@ -115,47 +115,96 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
                 self.google_files_removed = []
                 if not self.config["download_folder"] == "":
                     folder_id = self.get_create_remote_folder(drive, self.config["download_folder"])
-                google_file_list = drive.ListFile({'q': "trashed=false and '{}' in parents and title contains '.gcode'".format(folder_id or "root")}).GetList()
-                local_file_list = self._file_manager.list_files("local", "Google")["local"]
-                if len(google_file_list) < len(local_file_list):
-                    files_removed = True
+                tree = Tree()
+                tree.create_node("Google", folder_id or "root")
+                google_file_list = drive.ListFile({'q': "trashed=false and (title contains '.gcode' or mimeType='application/vnd.google-apps.folder')", 'orderBy': 'createdDate'}).GetList()
+                for google_file in google_file_list:
+                    if len(google_file['parents']) > 0:
+                        if tree.get_node(google_file['id']) is None:
+                            if tree.get_node(google_file['parents'][0]['id']):
+                                tree.create_node(google_file['title'], google_file['id'], parent=google_file['parents'][0]['id'], data=google_file)
+                local_file_list = self._flatten_files("Google")
 
-                for file in google_file_list:
-                    if not self._file_manager.file_exists("local", "Google/{}".format(file["title"])) and not self.downloading_files.get(file["title"], False) or self._file_manager.get_metadata("local", "Google/{}".format(file["title"])) and self._file_manager.get_metadata("local", "Google/{}".format(file["title"])).get("googledrive") != file["modifiedDate"]:
-                        if file["title"] not in self.local_files_removed:
-                            if file["title"] in self.local_files_added:
-                                self._logger.debug("{} was added locally, cleaning up".format(file["title"]))
-                                self.local_files_added.remove(file["title"])
-                            else:
-                                self._logger.debug("{} doesn't exist or updated, downloading".format(file["title"]))
-                                self.downloading_files[file["title"]] = file["modifiedDate"]
-                                file.GetContentFile("{}/Google/{}".format(self._settings.getBaseFolder("watched"), file["title"]))
+                # flatten our tree into dict of paths with google drive data
+                leave_paths = tree.paths_to_leaves()
+                google_file_paths = {}
+                for leave_path in leave_paths:
+                    full_path = ""
+                    for folder_identifier in leave_path:
+                        full_path += "/{}".format(tree.get_node(folder_identifier).tag)
+                    if full_path.lower().endswith(".gcode") or full_path.lower().endswith(".gco"):
+                        google_file_paths[full_path[1:]] = tree.get_node(folder_identifier).data
+
+                for file in google_file_paths:
+                    if not self.downloading_files.get(file, False):
+                        if not self._file_manager.file_exists("local", file) or self._file_manager.get_metadata("local", file).get("googledrive") != google_file_paths[file]["md5Checksum"]:
+                            self._logger.debug("{} updated on Google or missing".format(file))
+                            self.downloading_files[file] = google_file_paths[file]
+                            path_on_disk = "{}/{}".format(self._settings.getBaseFolder("watched"), file)
+                            folder_path = os.path.split(path_on_disk)[0]
+                            if not os.path.exists(folder_path):
+                                os.makedirs(folder_path)
+                            google_file_paths[file].GetContentFile(path_on_disk)
                         else:
-                            self._logger.debug("{} was deleted locally, cleaning up".format(file["title"]))
-                            self.local_files_removed.remove(file["title"])
-                    elif self.downloading_files.get(file["title"], False):
-                        self._logger.debug("{} already downloading".format(file["title"]))
+                            self._logger.debug("{} up to date".format(file))
                     else:
-                        self._logger.debug("{} is current".format(file["title"]))
-                    if files_removed:
-                        self.google_files.append(file["title"])
+                        self._logger.debug("{} already downloading".format(file))
 
-                if len(self.google_files) > 0:
-                    for file in local_file_list:
-                        if file not in self.google_files and file not in self.local_files_added:
-                            self._logger.debug("{} was removed from Google, deleting locally".format(file))
-                            self.google_files_removed.append(file)
-                            self._file_manager.remove_file("local", "Google/{}".format(file))
             except Exception as e:
                 self._logger.error(e)
                 google_file_list = {}
 
-            self.syncing = False
+            files_removed = local_file_list.keys() - google_file_paths.keys()
+            if len(files_removed) > 0:
+                for file_removed in files_removed:
+                    if file_removed not in self.local_files_added:
+                        self.google_files_removed.append(file_removed)
+                        self._logger.debug("{} removed from Google deleting".format(file_removed))
+                        self._file_manager.remove_file("local", file_removed)
+                        path_on_disk = os.path.join(self._settings.getBaseFolder("uploads"), file_removed)
+                        if not os.path.exists(path_on_disk) and file_removed in local_file_list:
+                            local_file_list.pop(file_removed)
+                        folder_path = os.path.split(path_on_disk)[0]
+                        if os.path.exists(folder_path) and os.listdir(folder_path) == ['.metadata.json']:
+                            os.remove(os.path.join(folder_path, ".metadata.json"))
+                            self._logger.debug("{} empty deleting".format(folder_path))
+                            os.removedirs(folder_path)
 
+            self.sync_thread = None
             return google_file_list
 
+    def _flatten_files(self, folder, filelist={}):
+        if type(folder) == str:
+            folder = self._file_manager.list_files("local", folder, recursive=True)["local"]
+        if folder is not None:
+            for fileKey in folder:
+                if folder[fileKey].get("type") == "machinecode":
+                    filelist[folder[fileKey].get("path")] = folder[fileKey]
+                if folder[fileKey]["type"] == "folder" and len(folder[fileKey].get("children", [])) > 0:
+                    self._flatten_files(folder[fileKey].get("children"), filelist)
+        return filelist
+
     def get_create_remote_folder(self, drive, folder_name):
-        folder_list = (drive.ListFile({'q': "mimeType='application/vnd.google-apps.folder' and trashed=false and title='{}'".format(folder_name)}).GetList())
+        def create_drive_folder_level(filename, parents):
+            dirs = drive.ListFile({'q': "'{}' in parents and trashed=false and mimeType='application/vnd.google-apps.folder'".format(parents[-1]['id'])})
+            try:
+                # this will give me the parent folder, if it exists
+                current = [x for x in list(dirs)[0] if x['title'] == filename][0]
+            except IndexError:
+                current = None
+            if not current:
+                meta = {'title': filename, 'parents': [{'id': x['id']} for x in [parents[-1]]], 'mimeType': 'application/vnd.google-apps.folder'}
+                current = drive.CreateFile(meta)
+                current.Upload({'convert': True})
+                return current
+            return current
+
+        folder_name = folder_name.split('/')
+        p = [dict(id='root')]
+        for i in range(len(folder_name)):
+            p.append(create_drive_folder_level(folder_name[i], p))
+
+        folder_list = p[-1]
 
         if not self._file_manager.folder_exists("local", "Google"):
             self._logger.debug("Creating local Google folder in uploads")
@@ -165,8 +214,8 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.debug("Creating local Google folder in watched folder")
             os.makedirs("{}/Google".format(self._settings.getBaseFolder("watched")))
 
-        if len(folder_list) == 1:
-            return folder_list[0]["id"]
+        if folder_list.get("id", False):
+            return folder_list["id"]
 
         file_metadata = {
             "title": folder_name,
@@ -179,18 +228,19 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
     # ~~ EventHandlerPlugin mixin
 
     def on_event(self, event, payload):
-        if event == "FileAdded" and payload.get("name", False):
-            if payload["name"] in self.downloading_files:
-                self._logger.debug("adding metadata to {}".format(payload["name"]))
-                self._file_manager.set_additional_metadata("local", payload["path"], "googledrive", self.downloading_files[payload["name"]], overwrite=True)
-                self.downloading_files.pop(payload["name"])
+        if event == "FileAdded" and payload.get("path", False):
+            if payload["path"] in self.downloading_files:
+                self._logger.debug("adding metadata to {}".format(payload["path"]))
+                self._file_manager.set_additional_metadata("local", payload["path"], "googledrive", self.downloading_files[payload["path"]]["md5Checksum"], overwrite=True)
+                self.downloading_files.pop(payload["path"])
             elif payload["path"].startswith("Google/"):
+                self.local_files_added.append(payload["path"])
                 self._logger.debug("{} added locally, uploading to Google".format(payload["name"]))
-                self.local_files_added.append(payload["name"])
                 folder_id = None
                 drive = self._get_drive()
                 if not self.config["download_folder"] == "":
-                    folder_id = self.get_create_remote_folder(drive, self.config["download_folder"])
+                    folder_path = os.path.split(payload["path"])[0].replace("Google", self.config["download_folder"])
+                    folder_id = self.get_create_remote_folder(drive, folder_path)
                 file_list = drive.ListFile({'q': "title='{}' and trashed=false and '{}' in parents".format(payload["name"], folder_id or "root")}).GetList()
                 if len(file_list) == 1:
                     f = file_list[0]
@@ -201,20 +251,23 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
                     f = drive.CreateFile(file_metadata)
                 f.SetContentFile(self._file_manager.path_on_disk("local", payload["path"]))
                 f.Upload()
-                self._logger.debug("adding metadata to {}".format(payload["name"]))
-                self._file_manager.set_additional_metadata("local", payload["path"], "googledrive", f["modifiedDate"], overwrite=True)
+                self._logger.debug("adding metadata to {}".format(payload["path"]))
+                self._file_manager.set_additional_metadata("local", payload["path"], "googledrive", f["md5Checksum"], overwrite=True)
+                self.local_files_added.remove(payload["path"])
                 f = None
 
-        if event == "FileRemoved" and payload.get("path", False) and payload["path"].startswith("Google/") and payload["name"] not in self.google_files_removed:
+        elif event == "FileRemoved" and payload.get("path", False) and payload["path"].startswith("Google/") and payload["path"] not in self.google_files_removed:
             self._logger.debug("{} file removed locally, deleting from Google".format(payload["name"]))
-            self.local_files_removed.append(payload["name"])
+            self.local_files_removed.append(payload["path"])
             folder_id = None
             drive = self._get_drive()
             if not self.config["download_folder"] == "":
-                folder_id = self.get_create_remote_folder(drive, self.config["download_folder"])
+                folder_path = os.path.split(payload["path"])[0].replace("Google", self.config["download_folder"])
+                folder_id = self.get_create_remote_folder(drive, folder_path)
             google_file_list = drive.ListFile({'q': "trashed=false and '{}' in parents and title = '{}'".format(folder_id or "root", payload["name"])}).GetList()
             if len(google_file_list) > 0:
                 google_file_list[0].Trash()
+            self.local_files_removed.remove(payload["path"])
 
     def _get_drive(self):
         from pydrive2.auth import GoogleAuth
@@ -251,8 +304,9 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
         return {"plugin_version": self._plugin_version}
 
     def update_file_list(self):
-        if self.config['cert_authorized'] and flask.request.path.startswith('/api/files') and flask.request.method == 'GET' and not self.syncing:
-            self.sync_files()
+        if self.config['cert_authorized'] and flask.request.path.startswith('/api/files') and flask.request.method == 'GET' and self.sync_thread is None:
+            self.sync_thread = threading.Thread(target=self.sync_files, daemon=True)
+            self.sync_thread.start()
 
     # ~~ Server API Before Request Hook
 
