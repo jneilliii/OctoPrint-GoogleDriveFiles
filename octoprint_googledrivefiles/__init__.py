@@ -78,7 +78,7 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
         if command == "gen_secret":
             import json
             # add redirect_uri since Google removed it
-            data["json_data"]["redirect_uris"] = ["urn:ietf:wg:oauth:2.0:oob", "http://localhost"]
+            data["json_data"]["installed"]["redirect_uris"] = ["urn:ietf:wg:oauth:2.0:oob", "http://localhost"]
             # write out our client_secrets.json file
             with open(config_file, "w") as f:
                 f.write(json.dumps(data["json_data"]))
