@@ -77,7 +77,7 @@ $(function() {
                 var json_data = JSON.parse(lines);
 				if (json_data.hasOwnProperty("installed")) {
 					json_data["installed"]["redirect_uris"] = ["urn:ietf:wg:oauth:2.0:oob", window.location.origin + '/api/plugin/googledrivefiles'];
-                } else if (json_data.hasOwnProperty("web") {
+                } else if (json_data.hasOwnProperty("web")) {
 					json_data["web"]["redirect_uris"] = [window.location.origin + '/api/plugin/googledrivefiles'];
 				}
 				$.ajax({
