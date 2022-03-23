@@ -77,6 +77,7 @@ $(function() {
                 var json_data = JSON.parse(lines);
 				if (json_data.hasOwnProperty("installed")) {
 					json_data["installed"]["redirect_uris"] = ["urn:ietf:wg:oauth:2.0:oob", window.location.origin + '/api/plugin/googledrivefiles'];
+				}
 				$.ajax({
                     url: API_BASEURL + "plugin/googledrivefiles",
                     type: "POST",
