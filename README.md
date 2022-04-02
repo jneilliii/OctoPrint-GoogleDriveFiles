@@ -41,7 +41,7 @@ sudo apt install libssl-dev
 ![screenshot](screenshots/settings_step10.png)
 12.	Click on `Create credentials` and select `OAuth client ID`. <br>
 ![screenshot](screenshots/settings_step11.png)
-13.	Select `Desktop App` for application type and then enter a name (can be anything and does not really matter) and then click `Create`. <br>
+13.	Select `Web application` for application type and then enter a name (can be anything and does not really matter). Fill in the Authorized redirect URIs as `https://jneilliii.github.io/OctoPrint-GoogleDriveFiles/` and then click `Create`. <br>
 ![screenshot](screenshots/settings_step12.png)
 14.	Click `OK` to the confirmation page and then use the download button ![screenshot](screenshots/settings_download.png) to save your client_secrets#####.json file. <br>
 ![screenshot](screenshots/settings_step13.png)
@@ -61,15 +61,17 @@ Once the Prerequisite steps above have been completed and you have downloaded yo
 ![screenshot](screenshots/configuration_step1.png)
 2. Fill in the name of the folder you'd like to sync with in your Google Drive (will be added if it doesn't exist), use the `Browse` button to select your downloaded client_secrets#####.json file and press the `Upload` button. <br>
 ![screenshot](screenshots/configuration_step2.png)
-3. An authentication URL will be generated and presented to you. Click that new URL to open a new window and authorize your custom Google app. <br>
+3. An authentication URL will be generated, click the `Get Auth Code` button to open a new window and authorize your custom Google app. <br>
 ![screenshot](screenshots/configuration_step3.png)
-4. Log in to your Google account you want to give Drive access to. You will get a warning that the App isn't verified. This is normal as you have not submitted your custom app for verification by Google. You can choose to do that if you want but is not necessary for the operation of the plugin. Click the `Advanced` link at the bottom of the page and the click `Go to <app name>`. <br>
+4. Log in to your Google account you want to give Drive access to. You will get a warning that the App isn't verified. This is normal as you have not submitted your custom app for verification by Google. You can choose to do that if you want but is not necessary for the operation of the plugin. Click the `Continue` button. <br>
 ![screenshot](screenshots/configuration_step4.png)
-5. Click the `Allow` button to retrieve your authentication code to enter in the plugin's settings in the next step. <br>
+5. Click the `Continue` button to retrieve your authentication code.<br>
 ![screenshot](screenshots/configuration_step5.png)
-6. Copy the code from step 5 and paste it into the **Auth Code** field and click `Authorize`. <br>
+6. Click the copy button to copy the authentication code to the clipboard.<br>
+![screenshot](screenshots/configuration_step5a.png)
+7. Paste the code copied in the previous step into the **Auth Code** field and click `Authorize`. <br>
 ![screenshot](screenshots/configuration_step6.png)
-7. If everything went well then you will be presented with a successful message. <br>
+8. If everything went well then you will be presented with a successful message. <br>
 ![screenshot](screenshots/configuration_step7.png)
 
 ## Get Help

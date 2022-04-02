@@ -40,9 +40,21 @@ $(function() {
         $("#googledrivefiles_cert_file").fileupload(certFileuploadOptions);
 
         self.onBeforeBinding = function() {
-			self.cert_saved(self.settingsViewModel.settings.plugins.googledrivefiles.cert_saved());
-			self.cert_authorized(self.settingsViewModel.settings.plugins.googledrivefiles.cert_authorized());
-		};
+            self.cert_saved(self.settingsViewModel.settings.plugins.googledrivefiles.cert_saved());
+            self.cert_authorized(self.settingsViewModel.settings.plugins.googledrivefiles.cert_authorized());
+        };
+        
+        self.onDataUpdaterPluginMessage = function(plugin, data) {
+            if (plugin != "googledrivefiles" || !data) {
+                return;
+            }
+            console.log(data)
+            if (data.hasOwnProperty("authorized")) {
+                self.cert_authorized(data.authorized);
+                self.auth_url('#');
+                self.authorizing(false);
+            }
+        }
 
         self.uploadCertFile = function(){
             if (self.cert_file_data === undefined) return;
@@ -63,7 +75,10 @@ $(function() {
             function receivedText(e) {
                 let lines = e.target.result;
                 var json_data = JSON.parse(lines);
-                $.ajax({
+				if (json_data.hasOwnProperty("installed")) {
+					json_data["installed"]["redirect_uris"] = ["urn:ietf:wg:oauth:2.0:oob", window.location.origin + '/api/plugin/googledrivefiles'];
+				}
+				$.ajax({
                     url: API_BASEURL + "plugin/googledrivefiles",
                     type: "POST",
                     dataType: "json",
@@ -105,7 +120,7 @@ $(function() {
 
         self.deleteCertFiles = function(){
             self.cert_saved(false);
-			self.cert_authorized(false);
+            self.cert_authorized(false);
         };
     }
 
