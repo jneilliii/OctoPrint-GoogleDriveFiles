@@ -1,18 +1,25 @@
-<html>
-<head>
-    <title>Google Drive Files oAuth</title>
-    <script type="application/javascript" src="static/js/jquery-3.6.0.min.js"></script>
-    <script type="application/javascript">
-        $(document).ready(function(){
-            const params = new Proxy(new URLSearchParams(window.location.search), {
-                get: (searchParams, prop) => searchParams.get(prop),
-            });
-            let oAuthCode = params.code;
-            $('#oAuthResults').text(oAuthCode);
+---
+title: Google Drive Files oAuth
+layout: base
+---
+<section class="py-5 text-center container">
+    <div class="row py-lg-5">
+        <div class="col-lg-6 col-md-8 mx-auto">
+            <h1 class="fw-light">Google Drive Files</h1>
+                <label for="oAuthResults" class="form-label">Your Authentication Code</label>
+                <div class="input-group mb-3">
+                  <input type="text" class="form-control" id="oAuthResults" aria-describedby="basic-addon3">
+                  <span class="input-group-text" id="basic-addon3">https://example.com/users/</span>
+                </div>
+        </div>
+    </div>
+</section>
+<script type="application/javascript">
+    $(document).ready(function(){
+        const params = new Proxy(new URLSearchParams(window.location.search), {
+            get: (searchParams, prop) => searchParams.get(prop),
         });
-    </script>
-</head>
-<body>
-    <div>Your Authentication Code is: <span id="oAuthResults"></span></div>
-</body>
-</html>
+        let oAuthCode = params.code;
+        $('#oAuthResults').text(oAuthCode);
+    });
+</script>

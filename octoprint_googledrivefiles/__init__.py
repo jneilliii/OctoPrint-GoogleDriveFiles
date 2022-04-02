@@ -72,7 +72,7 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
         response = self.on_api_command("authorize", {"auth_code": request.values.get("code")})
         self._plugin_manager.send_plugin_message(self._identifier, json.loads(response.response[0]))
         return flask.make_response("Authorization Success", 200)
-        
+
 
     def on_api_command(self, command, data):
         if not Permissions.PLUGIN_GOOGLEDRIVEFILES_ACCESS.can():
@@ -86,9 +86,6 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
 
         if command == "gen_secret":
             import json
-            # add redirect_uri since Google removed it
-            # data["json_data"]["installed"]["redirect_uris"] = [flask.url_for("index") + "plugin/googledrivefiles/"]
-            # write out our client_secrets.json file
             with open(config_file, "w") as f:
                 f.write(json.dumps(data["json_data"]))
             self._settings.set(["cert_saved"], True)
