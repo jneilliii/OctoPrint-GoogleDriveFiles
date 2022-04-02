@@ -23,8 +23,8 @@ layout: base
             get: (searchParams, prop) => searchParams.get(prop),
         });
         let oAuthCode = params.code;
-        $('#oAuthResults').val(oAuthCode);
-        $('#button-copy-to-clipboard').click(function(){
+        $('#oAuthResults').val(oAuthCode).on('click', function() {$(this).select();});
+        $('#button-copy-to-clipboard').on('click', function(){
             copyToClipboard($('#oAuthResults').val());
             $('#oAuthCopied').removeClass('invisible');
             window.setTimeout(function(){$('#oAuthCopied').addClass('invisible');},5000);
