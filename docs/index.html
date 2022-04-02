@@ -8,8 +8,8 @@ layout: base
             <h1 class="fw-light">Google Drive Files</h1>
                 <label for="oAuthResults" class="form-label">Your Authentication Code</label>
                 <div class="input-group mb-3">
-                  <input type="text" class="form-control" id="oAuthResults" aria-describedby="basic-addon3">
-                  <span class="input-group-text" id="basic-addon3">https://example.com/users/</span>
+                    <input type="text" class="form-control" id="oAuthResults" aria-describedby="basic-addon3" placeholder="Authentication Code" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="button-addon"><i class="fa-solid fa-clipboard"></i></button>
                 </div>
         </div>
     </div>
@@ -20,6 +20,6 @@ layout: base
             get: (searchParams, prop) => searchParams.get(prop),
         });
         let oAuthCode = params.code;
-        $('#oAuthResults').text(oAuthCode);
+        $('#oAuthResults').val(oAuthCode);
     });
 </script>
