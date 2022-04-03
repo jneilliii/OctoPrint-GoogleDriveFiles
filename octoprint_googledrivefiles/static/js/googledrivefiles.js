@@ -16,6 +16,7 @@ $(function() {
         self.cert_file_data = undefined;
         self.auth_code = ko.observable('');
         self.auth_url = ko.observable('#');
+        self.client_secret_alert = ko.observable('');
 
         var certFileuploadOptions = {
             dataType: "json",
@@ -43,7 +44,7 @@ $(function() {
             self.cert_saved(self.settingsViewModel.settings.plugins.googledrivefiles.cert_saved());
             self.cert_authorized(self.settingsViewModel.settings.plugins.googledrivefiles.cert_authorized());
         };
-        
+
         self.onDataUpdaterPluginMessage = function(plugin, data) {
             if (plugin != "googledrivefiles" || !data) {
                 return;
@@ -75,9 +76,17 @@ $(function() {
             function receivedText(e) {
                 let lines = e.target.result;
                 var json_data = JSON.parse(lines);
-				if (json_data.hasOwnProperty("installed")) {
-					json_data["installed"]["redirect_uris"] = ["urn:ietf:wg:oauth:2.0:oob", window.location.origin + '/api/plugin/googledrivefiles'];
-				}
+				if (!json_data.hasOwnProperty("web")) {
+					self.client_secret_alert('Incorrect oAuth Credential type selected in <a target="_blank" href="https://github.com/jneilliii/OctoPrint-GoogleDriveFiles#create-a-google-oauth-app">step 13</a>.');
+                    self.authorizing(false);
+                    return
+				} else if(json_data["web"]["redirect_uris"][0] !== 'https://jneilliii.github.io/OctoPrint-GoogleDriveFiles/') {
+                    self.client_secret_alert('Missing Authorized Redirect URI "https://jneilliii.github.io/OctoPrint-GoogleDriveFiles/" in <a target="_blank" href="https://github.com/jneilliii/OctoPrint-GoogleDriveFiles#create-a-google-oauth-app">step 13</a>.');
+                    self.authorizing(false);
+                    return
+                } else {
+                    self.client_secret_alert('');
+                }
 				$.ajax({
                     url: API_BASEURL + "plugin/googledrivefiles",
                     type: "POST",

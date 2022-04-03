@@ -19,6 +19,7 @@
                 </span>
                 <span class="add-on" data-bind="text: cert_file_name"></span>
             </div>
+            <div class="alert alert-error" data-bind="visible: client_secret_alert().length > 0, html: client_secret_alert"></div>
         </div>
     </div>
     <div class="control-group">
