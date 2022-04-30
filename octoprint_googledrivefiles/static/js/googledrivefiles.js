@@ -16,6 +16,7 @@ $(function() {
         self.cert_file_data = undefined;
         self.auth_code = ko.observable('');
         self.auth_url = ko.observable('#');
+        self.client_secret_alert = ko.observable('');
 
         var certFileuploadOptions = {
             dataType: "json",
@@ -40,9 +41,21 @@ $(function() {
         $("#googledrivefiles_cert_file").fileupload(certFileuploadOptions);
 
         self.onBeforeBinding = function() {
-			self.cert_saved(self.settingsViewModel.settings.plugins.googledrivefiles.cert_saved());
-			self.cert_authorized(self.settingsViewModel.settings.plugins.googledrivefiles.cert_authorized());
-		};
+            self.cert_saved(self.settingsViewModel.settings.plugins.googledrivefiles.cert_saved());
+            self.cert_authorized(self.settingsViewModel.settings.plugins.googledrivefiles.cert_authorized());
+        };
+
+        self.onDataUpdaterPluginMessage = function(plugin, data) {
+            if (plugin != "googledrivefiles" || !data) {
+                return;
+            }
+            console.log(data)
+            if (data.hasOwnProperty("authorized")) {
+                self.cert_authorized(data.authorized);
+                self.auth_url('#');
+                self.authorizing(false);
+            }
+        }
 
         self.uploadCertFile = function(){
             if (self.cert_file_data === undefined) return;
@@ -63,7 +76,18 @@ $(function() {
             function receivedText(e) {
                 let lines = e.target.result;
                 var json_data = JSON.parse(lines);
-                $.ajax({
+				if (!json_data.hasOwnProperty("web")) {
+					self.client_secret_alert('Incorrect oAuth Credential type selected in <a target="_blank" href="https://github.com/jneilliii/OctoPrint-GoogleDriveFiles#create-a-google-oauth-app">step 13</a>.');
+                    self.authorizing(false);
+                    return
+				} else if(json_data["web"]["redirect_uris"][0] !== 'https://jneilliii.github.io/OctoPrint-GoogleDriveFiles/') {
+                    self.client_secret_alert('Missing Authorized Redirect URI "https://jneilliii.github.io/OctoPrint-GoogleDriveFiles/" in <a target="_blank" href="https://github.com/jneilliii/OctoPrint-GoogleDriveFiles#create-a-google-oauth-app">step 13</a>.');
+                    self.authorizing(false);
+                    return
+                } else {
+                    self.client_secret_alert('');
+                }
+				$.ajax({
                     url: API_BASEURL + "plugin/googledrivefiles",
                     type: "POST",
                     dataType: "json",
@@ -105,7 +129,7 @@ $(function() {
 
         self.deleteCertFiles = function(){
             self.cert_saved(false);
-			self.cert_authorized(false);
+            self.cert_authorized(false);
         };
     }
 

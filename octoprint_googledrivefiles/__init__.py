@@ -5,6 +5,7 @@ import threading
 
 import octoprint.plugin
 import flask
+import json
 import os
 from flask_babel import gettext
 from octoprint.access.permissions import Permissions, ADMIN_GROUP
@@ -16,6 +17,7 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
                              octoprint.plugin.TemplatePlugin,
                              octoprint.plugin.SimpleApiPlugin,
                              octoprint.plugin.EventHandlerPlugin,
+                             octoprint.plugin.BlueprintPlugin,
                              ):
 
     def __init__(self):
@@ -64,8 +66,15 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
     def get_api_commands(self):
         return {'gen_secret': ["json_data"], 'authorize': ["auth_code"]}
 
+    def on_api_get(self, request):
+        if not Permissions.PLUGIN_GOOGLEDRIVEFILES_ACCESS.can():
+            return flask.make_response("Insufficient rights", 403)
+        response = self.on_api_command("authorize", {"auth_code": request.values.get("code")})
+        self._plugin_manager.send_plugin_message(self._identifier, json.loads(response.response[0]))
+        return flask.make_response("Authorization Success", 200)
+
+
     def on_api_command(self, command, data):
-        import flask
         if not Permissions.PLUGIN_GOOGLEDRIVEFILES_ACCESS.can():
             return flask.make_response("Insufficient rights", 403)
 
@@ -77,7 +86,6 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
 
         if command == "gen_secret":
             import json
-            # write out our client_secrets.json file
             with open(config_file, "w") as f:
                 f.write(json.dumps(data["json_data"]))
             self._settings.set(["cert_saved"], True)
