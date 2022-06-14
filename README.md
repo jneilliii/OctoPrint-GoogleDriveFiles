@@ -52,7 +52,7 @@ sudo apt install libssl-dev
 Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
 or manually using this URL:
 
-    https://github.com/jneilliii/OctoPrint-GoogleDriveBackup/archive/master.zip
+    https://github.com/jneilliii/OctoPrint-GoogleDriveFiles/archive/master.zip
 
 ## Configuration
 Once the Prerequisite steps above have been completed and you have downloaded your client_secrets.json file follow these steps to authorize the plugin to your newly created app.
