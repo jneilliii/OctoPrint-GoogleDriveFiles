@@ -125,7 +125,7 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
                     folder_id = self.get_create_remote_folder(drive, self.config["download_folder"])
                 tree = Tree()
                 tree.create_node("Google", folder_id or "root")
-                google_file_list = drive.ListFile({'q': "trashed=false and (title contains '.gcode' or mimeType='application/vnd.google-apps.folder')", 'orderBy': 'createdDate'}).GetList()
+                google_file_list = drive.ListFile({'q': "trashed=false and (title contains '.gcode' or title contains '.bgcode' or mimeType='application/vnd.google-apps.folder')", 'orderBy': 'createdDate'}).GetList()
                 for google_file in google_file_list:
                     if len(google_file['parents']) > 0:
                         if tree.get_node(google_file['id']) is None:
@@ -140,7 +140,7 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
                     full_path = ""
                     for folder_identifier in leave_path:
                         full_path += "/{}".format(tree.get_node(folder_identifier).tag)
-                    if full_path.lower().endswith(".gcode") or full_path.lower().endswith(".gco"):
+                    if full_path.lower().endswith(".gcode") or full_path.lower().endswith(".gco") or full_path.lower().endswith(".bgcode"):
                         google_file_paths[full_path[1:]] = tree.get_node(folder_identifier).data
 
                 for file in google_file_paths:
