@@ -14,7 +14,7 @@ plugin_package = "octoprint_googledrivefiles"
 plugin_name = "Google Drive Files"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "0.1.1"
+plugin_version = "0.1.2"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -33,7 +33,7 @@ plugin_url = "https://github.com/jneilliii/OctoPrint-GoogleDriveFiles"
 plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
-plugin_requires = ["cryptography>=38.0.0,<40", "pydrive2", "treelib"]
+plugin_requires = ["cryptography>=38.0.0,<40", "httplib2<0.30.0", "pydrive2", "treelib"]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
