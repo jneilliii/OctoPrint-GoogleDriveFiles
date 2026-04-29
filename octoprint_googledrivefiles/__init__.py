@@ -17,7 +17,6 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
                              octoprint.plugin.TemplatePlugin,
                              octoprint.plugin.SimpleApiPlugin,
                              octoprint.plugin.EventHandlerPlugin,
-                             octoprint.plugin.BlueprintPlugin,
                              ):
 
     def __init__(self):
@@ -62,6 +61,9 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
             self._logger.debug("{}: {}".format(k, v))
 
     # ~~ SimpleApiPlugin mixin
+
+    def is_api_protected(self):
+        return True
 
     def get_api_commands(self):
         return {'gen_secret': ["json_data"], 'authorize': ["auth_code"]}
@@ -307,6 +309,9 @@ class GoogledrivefilesPlugin(octoprint.plugin.SettingsPlugin,
         }
 
     # ~~ TemplatePlugin mixin
+
+    def is_template_autoescaped(self):
+        return True
 
     def get_template_vars(self):
         return {"plugin_version": self._plugin_version}
